@@ -58,9 +58,28 @@ Unit tests cover money and German date formatting (wrong-in-silence if it drifts
 
 Parallel testing is disabled above on purpose — the test clones have been unreliable on this machine.
 
+## Localisation
+
+German is the source language; English is a second localisation via
+`refind/Resources/Localizable.xcstrings`.
+
+**English is incomplete.** Model display names, error copy and push copy are
+translated; the ~150 literals inside views are not, so an English device shows a
+mix. Finishing it is mechanical — build in Xcode, which extracts the remaining
+strings into the catalog, then fill the English column. German is unaffected and
+complete.
+
+Wire values (report subject types, sort keys, enum raw values) are deliberately
+outside the catalog — localising those would corrupt API requests.
+
 ## Not built yet
 
-Identity verification, push notification copy, report & block, dispute handling and dark mode are all listed as undesigned in the handoff. Strings are hardcoded German with no localisation layer.
+- **A backend.** `docs/API.md` proposes the whole v1 contract and
+  `LiveRefindRepository` implements it, but nothing serves it.
+- **The escrow provider**, which decides the real shape of
+  `POST /escrows/{id}/authorise`.
+- The chat WebSocket, so typing indicators are quiet on the live path.
+- Font licence files — see `refind/Resources/Fonts/NOTICE.md` before shipping.
 
 ## Fonts
 
