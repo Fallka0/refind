@@ -9,9 +9,17 @@ import SwiftUI
 
 @main
 struct refindApp: App {
+    @State private var environment = AppEnvironment()
+
+    init() {
+        FontLoader.verify()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(environment)
+                .task { await environment.loadSession() }
         }
     }
 }

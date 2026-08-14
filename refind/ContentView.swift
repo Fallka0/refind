@@ -2,23 +2,26 @@
 //  ContentView.swift
 //  refind
 //
-//  Created by Mykyta Pantelei on 14.08.2026.
+//  The tab shell. Splash and onboarding gate this in step 9.
 //
 
 import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        #if DEBUG
+        if let screen = DebugScreen.requested {
+            DebugScreenHost(screen: screen)
+        } else {
+            RootView()
         }
-        .padding()
+        #else
+        RootView()
+        #endif
     }
 }
 
 #Preview {
     ContentView()
+        .environment(AppEnvironment.preview)
 }
