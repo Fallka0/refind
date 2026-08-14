@@ -34,17 +34,17 @@ enum PaymentMethod: String, CaseIterable, Identifiable, Hashable, Sendable {
 
     var displayName: String {
         switch self {
-        case .escrow: return "refind Treuhand"
-        case .card:   return "Direkt per Karte"
-        case .cash:   return "Bar bei Übergabe"
+        case .escrow: return String(localized: "refind Treuhand")
+        case .card:   return String(localized: "Direkt per Karte")
+        case .cash:   return String(localized: "Bar bei Übergabe")
         }
     }
 
     var explanation: String {
         switch self {
-        case .escrow: return "Wir halten das Geld, bis du die Ware in der Hand hast. Der Verkäufer sieht, dass bezahlt ist."
-        case .card:   return "Sofort an den Verkäufer, keine Absicherung"
-        case .cash:   return "refind ist nicht beteiligt"
+        case .escrow: return String(localized: "Wir halten das Geld, bis du die Ware in der Hand hast. Der Verkäufer sieht, dass bezahlt ist.")
+        case .card:   return String(localized: "Sofort an den Verkäufer, keine Absicherung")
+        case .cash:   return String(localized: "refind ist nicht beteiligt")
         }
     }
 
@@ -60,9 +60,9 @@ struct Escrow: Identifiable, Hashable, Sendable {
 
         var displayName: String {
             switch self {
-            case .paid:     return "Bezahlt"
-            case .handover: return "Übergabe"
-            case .released: return "Freigabe"
+            case .paid:     return String(localized: "Bezahlt")
+            case .handover: return String(localized: "Übergabe")
+            case .released: return String(localized: "Freigabe")
             }
         }
     }

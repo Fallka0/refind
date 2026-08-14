@@ -56,4 +56,19 @@ protocol RefindRepository: Sendable {
     func releaseEscrow(id: String) async throws -> Escrow
     func escrow(forThread threadID: String) async throws -> Escrow?
     func rate(dealID: String, stars: Int) async throws
+    /// Opens a dispute against an escrow — money stays held until it is settled.
+    func openDispute(escrowID: String, reason: DisputeReason, detail: String) async throws -> Escrow
+
+    // MARK: Safety
+    func report(_ subject: ReportSubject, reason: ReportReason, detail: String) async throws
+    func setBlocked(userID: String, blocked: Bool) async throws
+    func blockedUsers() async throws -> [User]
+
+    // MARK: Verification
+    func verificationStatus() async throws -> VerificationStatus
+    /// Returns the provider URL the app opens. Documents never reach refind.
+    func startVerification() async throws -> URL
+
+    // MARK: Push
+    func registerDevice(token: String, sandbox: Bool) async throws
 }

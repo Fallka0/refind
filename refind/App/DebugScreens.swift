@@ -179,5 +179,13 @@ private struct EmptyRefindRepository: RefindRepository {
     func releaseEscrow(id: String) async throws -> Escrow { throw RepositoryError.notFound }
     func escrow(forThread threadID: String) async throws -> Escrow? { nil }
     func rate(dealID: String, stars: Int) async throws {}
+    func openDispute(escrowID: String, reason: DisputeReason,
+                     detail: String) async throws -> Escrow { throw RepositoryError.notFound }
+    func report(_ subject: ReportSubject, reason: ReportReason, detail: String) async throws {}
+    func setBlocked(userID: String, blocked: Bool) async throws {}
+    func blockedUsers() async throws -> [User] { [] }
+    func verificationStatus() async throws -> VerificationStatus { .unverified }
+    func startVerification() async throws -> URL { URL(string: "https://example.com")! }
+    func registerDevice(token: String, sandbox: Bool) async throws {}
 }
 #endif

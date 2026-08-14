@@ -34,6 +34,7 @@ final class OnboardingStore {
 
 struct OnboardingFlow: View {
     var onFinish: () -> Void = {}
+    @Environment(AppEnvironment.self) private var environment
     @State private var store = OnboardingStore()
 
     var body: some View {
@@ -167,7 +168,9 @@ struct OnboardingFlow: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                Button("Erlauben") { store.notificationsAllowed = true }
+                Button("Erlauben") {
+                    Task { store.notificationsAllowed = await environment.push.requestAuthorization() }
+                }
                     .buttonStyle(RFButtonStyle(kind: store.notificationsAllowed
                                                ? .disabled : .secondary))
                     .disabled(store.notificationsAllowed)

@@ -9,6 +9,7 @@ import SwiftUI
 
 @main
 struct refindApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var environment = AppEnvironment()
 
     init() {

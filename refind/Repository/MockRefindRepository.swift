@@ -45,6 +45,11 @@ actor MockRefindRepository: RefindRepository {
     private var deals: [Deal] = [MockSeed.marcDeal]
     private var escrows: [Escrow] = []
     private var savedIDs: Set<String> = []
+    private var blockedIDs: Set<String> = []
+    private var reports: [String] = []
+    private var disputes: [String: String] = [:]
+    private var deviceTokens: Set<String> = []
+    private var verification: VerificationStatus = .unverified
     private var ratings: [String: Int] = [:]
     private var nextID = 1
 
@@ -137,6 +142,7 @@ actor MockRefindRepository: RefindRepository {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return wants
             .filter { $0.ownerID != MockSeed.me.id && $0.isLive }
+            .filter { !blockedIDs.contains($0.ownerID) }
             .filter { category == nil || $0.category == category }
             .filter { trimmed.isEmpty || $0.title.lowercased().contains(trimmed) }
             .sorted { $0.createdAt > $1.createdAt }
@@ -456,5 +462,53 @@ actor MockRefindRepository: RefindRepository {
     func rate(dealID: String, stars: Int) async throws {
         try await hop()
         ratings[dealID] = max(1, min(5, stars))
+    }
+}
+
+// MARK: - Safety, verification, push
+
+extension MockRefindRepository {
+
+    func openDispute(escrowID: String, reason: DisputeReason,
+                     detail: String) async throws -> Escrow {
+        try await hop()
+        disputes[escrowID] = "\(reason.rawValue): \(detail)"
+        // Money stays held. The stage does not advance to released while a
+        // dispute is open — that is the whole point of holding it.
+        return try advance(escrowID, to: .handover)
+    }
+
+    func report(_ subject: ReportSubject, reason: ReportReason, detail: String) async throws {
+        try await hop()
+        reports.append("\(subject.wireType):\(subject.id) \(reason.rawValue) \(detail)")
+    }
+
+    func setBlocked(userID: String, blocked: Bool) async throws {
+        try await hop()
+        if blocked { blockedIDs.insert(userID) } else { blockedIDs.remove(userID) }
+        // Blocking hides both sides immediately, threads included.
+        threadStore.removeAll { blocked && $0.partner.id == userID }
+    }
+
+    func blockedUsers() async throws -> [User] {
+        try await hop()
+        return MockSeed.people.filter { blockedIDs.contains($0.id) }
+    }
+
+    func verificationStatus() async throws -> VerificationStatus {
+        try await hop()
+        return verification
+    }
+
+    func startVerification() async throws -> URL {
+        try await hop()
+        verification = .pending
+        // A real build hands back the provider's hosted flow.
+        return URL(string: "https://verify.refind.ch/session/mock")!
+    }
+
+    func registerDevice(token: String, sandbox: Bool) async throws {
+        try await hop()
+        deviceTokens.insert(token)
     }
 }

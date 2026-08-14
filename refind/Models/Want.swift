@@ -14,12 +14,12 @@ enum Category: String, CaseIterable, Identifiable, Hashable, Sendable {
 
     var displayName: String {
         switch self {
-        case .uhren:    return "Uhren"
-        case .moebel:   return "Möbel"
-        case .velo:     return "Velo"
-        case .vinyl:    return "Vinyl"
-        case .kameras:  return "Kameras"
-        case .werkzeug: return "Werkzeug"
+        case .uhren:    return String(localized: "Uhren")
+        case .moebel:   return String(localized: "Möbel")
+        case .velo:     return String(localized: "Velo")
+        case .vinyl:    return String(localized: "Vinyl")
+        case .kameras:  return String(localized: "Kameras")
+        case .werkzeug: return String(localized: "Werkzeug")
         }
     }
 
@@ -54,9 +54,9 @@ enum Condition: String, CaseIterable, Identifiable, Hashable, Sendable {
 
     var displayName: String {
         switch self {
-        case .original: return "Original"
-        case .serviced: return "Serviciert"
-        case .any:      return "Egal"
+        case .original: return String(localized: "Original")
+        case .serviced: return String(localized: "Serviciert")
+        case .any:      return String(localized: "Egal")
         }
     }
 }

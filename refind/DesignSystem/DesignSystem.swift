@@ -21,6 +21,19 @@ extension Color {
             opacity: 1
         )
     }
+
+    /// Resolves per appearance. The handoff says the palette "inverts cleanly
+    /// (ink ↔ paper)" but draws no dark screens, so the dark column below is a
+    /// proposal — see the notes on each token.
+    init(light: UInt32, dark: UInt32) {
+        #if canImport(UIKit)
+        self.init(uiColor: UIColor { traits in
+            UIColor(Color(hex: traits.userInterfaceStyle == .dark ? dark : light))
+        })
+        #else
+        self.init(hex: light)
+        #endif
+    }
 }
 
 enum RF {
@@ -28,25 +41,30 @@ enum RF {
     // MARK: Palette
     enum Palette {
         /// All text, primary buttons, mascot outline, active icons.
-        static let ink        = Color(hex: 0x1A1917)
+        static let ink        = Color(light: 0x1A1917, dark: 0xEDEBE7)
         /// Default screen surface.
-        static let paper      = Color(hex: 0xEDEBE7)
-        /// Cards, sheets, incoming bubbles, inputs.
-        static let card       = Color(hex: 0xFFFFFF)
-        /// Expired / disabled cards.
-        static let cardAlt    = Color(hex: 0xF7F6F3)
+        static let paper      = Color(light: 0xEDEBE7, dark: 0x1A1917)
+        /// Cards, sheets, incoming bubbles, inputs. Dark lifts off the
+        /// background rather than inverting to white, which would glare.
+        static let card       = Color(light: 0xFFFFFF, dark: 0x232220)
+        /// Expired / disabled cards. Sits *below* card in dark, as it does above
+        /// it in light — the relationship is "quieter", not "lighter".
+        static let cardAlt    = Color(light: 0xF7F6F3, dark: 0x1F1E1C)
         /// RESERVED for offers, prices, live state, badges. Never a large fill.
-        static let offer      = Color(hex: 0xB5442A)
-        /// Secondary text, inactive icons, meta.
-        static let muted      = Color(hex: 0x8C877E)
-        /// Hairlines and card borders.
-        static let line       = Color(hex: 0xDCD8D2)
+        /// Lifted in dark: the light red fails contrast against a near-black
+        /// surface, and this is the one colour that must always read.
+        static let offer      = Color(light: 0xB5442A, dark: 0xD4674B)
+        /// Secondary text, inactive icons, meta. Holds on both grounds.
+        static let muted      = Color(light: 0x8C877E, dark: 0x8C877E)
+        /// Hairlines and card borders. The handoff names inkSoft as the
+        /// dark-mode hairline.
+        static let line       = Color(light: 0xDCD8D2, dark: 0x3A3833)
         /// Dashed empty-state borders, expired mascot.
-        static let lineStrong = Color(hex: 0xC9C4BC)
-        /// Body text on white.
-        static let inkSoft    = Color(hex: 0x3A3833)
+        static let lineStrong = Color(light: 0xC9C4BC, dark: 0x4A4842)
+        /// Body text on card.
+        static let inkSoft    = Color(light: 0x3A3833, dark: 0xDCD8D2)
         /// Secondary body copy.
-        static let inkMid     = Color(hex: 0x5C5850)
+        static let inkMid     = Color(light: 0x5C5850, dark: 0xC9C4BC)
     }
 
     // MARK: Typography

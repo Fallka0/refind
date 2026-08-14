@@ -13,9 +13,9 @@ enum OfferSort: String, CaseIterable, Identifiable, Hashable, Sendable {
     /// The sort control on screen 07 reads "Preis ↑".
     var displayName: String {
         switch self {
-        case .priceAscending:  return "Preis ↑"
-        case .priceDescending: return "Preis ↓"
-        case .newest:          return "Neuste"
+        case .priceAscending:  return String(localized: "Preis ↑")
+        case .priceDescending: return String(localized: "Preis ↓")
+        case .newest:          return String(localized: "Neuste")
         }
     }
 }

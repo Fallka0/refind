@@ -36,6 +36,7 @@ struct ProfileScreen: View {
         }
         .sheet(item: $route) { route in
             ProfileSheet(route: route, radiusKm: $radiusKm)
+                .environment(environment)
         }
     }
 
@@ -86,9 +87,13 @@ struct ProfileScreen: View {
             row("Zahlungsarten") { route = .payment }
             row("Benachrichtigungen") { route = .notifications }
             row("Suchradius", value: "\(radiusKm) km") { route = .radius }
-            row("Verifizierung", value: "offen", valueColor: RF.Palette.offer) {
+            row("Verifizierung",
+                value: environment.verification.displayName,
+                valueColor: environment.verification.isAttention
+                    ? RF.Palette.offer : RF.Palette.muted) {
                 route = .verification
             }
+            row("Blockiert") { route = .blocked }
         }
         .padding(.horizontal, RF.Metric.screenMargin)
     }

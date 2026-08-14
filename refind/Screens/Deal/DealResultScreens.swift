@@ -94,6 +94,7 @@ struct EscrowActiveScreen: View {
     let store: DealStore
     let onBackToChat: () -> Void
     @State private var showReceipt = false
+    @State private var showDispute = false
 
     var body: some View {
         ZStack {
@@ -137,6 +138,12 @@ struct EscrowActiveScreen: View {
                         .accessibilityIdentifier("escrow.backToChat")
                     Button("Beleg ansehen") { showReceipt = true }
                         .buttonStyle(RFButtonStyle(kind: .secondary))
+                    Button("Problem melden") { showDispute = true }
+                        .font(RF.ui(14))
+                        .foregroundStyle(RF.Palette.muted)
+                        .frame(minHeight: RF.Metric.minHitTarget)
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("escrow.dispute")
                     Text(footnote)
                         .font(RF.ui(13))
                         .foregroundStyle(RF.Palette.muted)
@@ -147,6 +154,13 @@ struct EscrowActiveScreen: View {
             .padding(.top, 110)
             .padding(.bottom, 40)
             .rfScrollableScreen()
+        }
+        .sheet(isPresented: $showDispute) {
+            if let escrow = store.escrow {
+                DisputeSheet(escrowID: escrow.id, partnerName: store.partnerFirstName) { updated in
+                    store.escrow = updated
+                }
+            }
         }
         .sheet(isPresented: $showReceipt) {
             if let escrow = store.escrow {

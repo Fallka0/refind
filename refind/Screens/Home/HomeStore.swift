@@ -15,8 +15,8 @@ final class HomeStore {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .mine:  return "Meine Gesuche"
-            case .saved: return "Gespeichert"
+            case .mine:  return String(localized: "Meine Gesuche")
+            case .saved: return String(localized: "Gespeichert")
             }
         }
     }

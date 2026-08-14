@@ -85,6 +85,8 @@ struct ChatScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var store: ChatStore?
     @State private var picked: [PhotosPickerItem] = []
+    @State private var showReport = false
+    @State private var showBlockConfirm = false
 
     var body: some View {
         ZStack {
@@ -119,6 +121,25 @@ struct ChatScreen: View {
                 .environment(environment)
                 .onDisappear { Task { await store.refreshEscrow() } }
         }
+        .sheet(isPresented: $showReport) {
+            ReportSheet(subject: .user(thread.partner.id),
+                        subjectName: thread.partner.displayName)
+                .environment(environment)
+        }
+        .alert("\(thread.partner.displayName) blockieren?",
+               isPresented: $showBlockConfirm) {
+            Button("Abbrechen", role: .cancel) {}
+            Button("Blockieren", role: .destructive) {
+                Task {
+                    try? await environment.repository.setBlocked(
+                        userID: thread.partner.id, blocked: true
+                    )
+                    dismiss()
+                }
+            }
+        } message: {
+            Text("Ihr seht einander nicht mehr. Offene Treuhand-Zahlungen bleiben bestehen.")
+        }
     }
 
     private var header: some View {
@@ -146,6 +167,21 @@ struct ChatScreen: View {
                 Text(thread.offerPrice.formatted)
                     .font(RF.num(13, weight: .medium))
                     .foregroundStyle(RF.Palette.offer)
+                Menu {
+                    Button("\(thread.partner.displayName) melden") { showReport = true }
+                    Button("\(thread.partner.displayName) blockieren", role: .destructive) {
+                        showBlockConfirm = true
+                    }
+                } label: {
+                    Text("···")
+                        .font(RF.ui(17))
+                        .foregroundStyle(RF.Palette.muted)
+                        .frame(width: RF.Metric.minHitTarget,
+                               height: RF.Metric.minHitTarget)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Mehr")
+                .accessibilityIdentifier("chat.more")
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
