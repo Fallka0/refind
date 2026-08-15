@@ -66,8 +66,63 @@ The schema in `sql/001_init.sql` covers the whole model — including the German
 full-text index on wants, since "Rennvelo" has to find "Velo" and a substring
 match will not.
 
-## Deploying
+## Deploying to Vercel
 
-Nothing is deployed yet. The app is a plain fetch handler exported as default,
-so it runs on Vercel unchanged; it needs `DATABASE_URL` (Neon or Vercel
-Postgres) and `JWT_SECRET` as environment variables.
+`api/index.ts` adapts the same `app` object with `hono/vercel`, and
+`vercel.json` rewrites every path to it. Nothing else differs from local.
+
+**Set the project root to `server/`** — the repo also contains an iOS app, and
+Vercel would otherwise try to build that.
+
+### 1. A hosted Postgres
+
+Any Postgres works; the connection just has to be reachable from Vercel and
+speak TLS (the client requires it for non-local hosts). Through the Vercel
+dashboard, **Storage → Create → Neon** is the shortest path and has a free
+tier. Whatever you use, put the pooled connection string in `DATABASE_URL`.
+
+The client opens **one connection per invocation** on Vercel. Hosted Postgres
+sits behind a pooler, and a lambda opening ten each would exhaust it under any
+real load.
+
+### 2. Environment variables
+
+```bash
+vercel env add DATABASE_URL production
+vercel env add JWT_SECRET production
+```
+
+Generate the secret with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+```
+
+`JWT_SECRET` signs every access token — **rotating it signs everyone out.**
+
+### 3. Migrate, then deploy
+
+Migrations run from your machine against the hosted database:
+
+```bash
+DATABASE_URL="postgres://…" npm run migrate
+vercel --prod
+```
+
+### 4. Point the app at it
+
+Set `RefindEnvironment.production` in `refind/Repository/Live/RefindAPI.swift`
+to `https://<deployment>/v1`. Release builds use it automatically; debug builds
+still default to localhost, and `RF_API_BASE` overrides either.
+
+### Checking a deployment
+
+```bash
+curl https://<deployment>/health
+```
+
+The self-test can also run against it, though it writes real rows:
+
+```bash
+DATABASE_URL="postgres://…" JWT_SECRET="…" npx tsx src/selftest.ts
+```
