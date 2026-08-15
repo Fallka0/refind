@@ -46,7 +46,7 @@ profile expires after 7 days.
 Any screen can be opened directly in debug builds:
 
 ```bash
-SIMCTL_CHILD_RF_SCREEN=want-detail xcrun simctl launch <device-udid> planary.refind
+SIMCTL_CHILD_RF_SCREEN=want-detail xcrun simctl launch <device-udid> ch.nick.refind
 ```
 
 Names are in `App/DebugScreens.swift` — including `home-empty`, `home-error` and `home-loading` for the list states.

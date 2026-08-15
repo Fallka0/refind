@@ -18,23 +18,55 @@ struct RefindEnvironment: Sendable {
     static let staging = RefindEnvironment(
         baseURL: URL(string: "https://api.staging.refind.ch/v1")!
     )
+    /// The simulator shares the Mac's network, so localhost reaches `npm run dev`.
+    /// A device needs the Mac's LAN address instead — pass RF_API_BASE.
+    static let local = RefindEnvironment(
+        baseURL: URL(string: "http://localhost:3000/v1")!
+    )
+
+    /// RF_API_BASE wins, so a device build can be pointed at a LAN address or a
+    /// deployment without a rebuild.
+    static var current: RefindEnvironment {
+        if let raw = ProcessInfo.processInfo.environment["RF_API_BASE"],
+           let url = URL(string: raw) {
+            return RefindEnvironment(baseURL: url)
+        }
+        #if DEBUG
+        return .local
+        #else
+        return .production
+        #endif
+    }
 }
 
-/// Holds the token pair. A real build swaps this for the Keychain — tokens in
-/// memory only is deliberate here rather than accidentally persisting them
-/// somewhere insecure.
+/// Holds the token pair, backed by the Keychain so a session survives a
+/// relaunch without ever sitting in a plist.
 actor TokenStore {
     private var accessToken: String?
     private var refreshToken: String?
+
+    init() {
+        accessToken = Keychain.get(Keychain.Key.accessToken)
+        refreshToken = Keychain.get(Keychain.Key.refreshToken)
+    }
+
+    var isSignedIn: Bool { refreshToken != nil }
 
     func tokens() -> (access: String?, refresh: String?) { (accessToken, refreshToken) }
 
     func update(access: String?, refresh: String?) {
         accessToken = access
         refreshToken = refresh
+        Keychain.set(access, for: Keychain.Key.accessToken)
+        Keychain.set(refresh, for: Keychain.Key.refreshToken)
     }
 
-    func clear() { accessToken = nil; refreshToken = nil }
+    func clear() {
+        accessToken = nil
+        refreshToken = nil
+        Keychain.remove(Keychain.Key.accessToken)
+        Keychain.remove(Keychain.Key.refreshToken)
+    }
 }
 
 /// The error body every non-2xx response carries.
@@ -48,13 +80,13 @@ actor RefindAPI {
 
     private let environment: RefindEnvironment
     private let session: URLSession
-    private let tokens: TokenStore
+    let tokenStore: TokenStore
 
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .custom { decoder in
             let raw = try decoder.singleValueContainer().decode(String.self)
-            guard let date = RefindAPI.rfc3339.date(from: raw) else {
+            guard let date = RefindAPI.parseRFC3339(raw) else {
                 throw DecodingError.dataCorruptedError(
                     in: try decoder.singleValueContainer(),
                     debugDescription: "Expected RFC 3339, got \(raw)"
@@ -80,12 +112,26 @@ actor RefindAPI {
         return f
     }()
 
-    init(environment: RefindEnvironment = .production,
+    /// JavaScript's toISOString() emits fractional seconds; Postgres and hand
+    /// written timestamps often do not. ISO8601DateFormatter matches one shape
+    /// per configuration, so both are tried — parsing only the first meant every
+    /// date-bearing response failed to decode.
+    private static let rfc3339Fractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    static func parseRFC3339(_ raw: String) -> Date? {
+        rfc3339Fractional.date(from: raw) ?? rfc3339.date(from: raw)
+    }
+
+    init(environment: RefindEnvironment = .current,
          session: URLSession = .shared,
          tokens: TokenStore = TokenStore()) {
         self.environment = environment
         self.session = session
-        self.tokens = tokens
+        self.tokenStore = tokens
     }
 
     // MARK: Requests
@@ -168,7 +214,7 @@ actor RefindAPI {
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let access = await tokens.tokens().access {
+        if let access = await tokenStore.tokens().access {
             request.setValue("Bearer \(access)", forHTTPHeaderField: "Authorization")
         }
         if let body {
@@ -216,8 +262,8 @@ actor RefindAPI {
     }
 
     private func refreshTokens() async throws {
-        guard let refresh = await tokens.tokens().refresh else {
-            await tokens.clear()
+        guard let refresh = await tokenStore.tokens().refresh else {
+            await tokenStore.clear()
             throw RepositoryError.server
         }
         struct Request: Encodable { let refreshToken: String }
@@ -228,6 +274,53 @@ actor RefindAPI {
         // Deliberately not through sendRaw — a 401 here must not recurse.
         let response: Response = try await send("auth/refresh", method: .post,
                                                 body: Request(refreshToken: refresh))
-        await tokens.update(access: response.accessToken, refresh: response.refreshToken)
+        await tokenStore.update(access: response.accessToken, refresh: response.refreshToken)
+    }
+}
+
+// MARK: - Session
+
+extension RefindAPI {
+
+    private struct SessionResponse: Decodable {
+        let accessToken: String
+        let refreshToken: String
+    }
+
+    func hasStoredSession() -> Bool {
+        Keychain.get(Keychain.Key.refreshToken) != nil
+    }
+
+    func register(email: String, password: String, displayName: String?) async throws {
+        struct Body: Encodable {
+            let email: String
+            let password: String
+            let displayName: String?
+        }
+        let session: SessionResponse = try await post(
+            "auth/register",
+            body: Body(email: email, password: password, displayName: displayName)
+        )
+        await tokenStore.update(access: session.accessToken, refresh: session.refreshToken)
+    }
+
+    func login(email: String, password: String) async throws {
+        struct Body: Encodable { let email: String; let password: String }
+        let session: SessionResponse = try await post(
+            "auth/login", body: Body(email: email, password: password)
+        )
+        await tokenStore.update(access: session.accessToken, refresh: session.refreshToken)
+    }
+
+    /// Best effort: the server revokes every session, but a failure here must
+    /// still clear the device — otherwise a user who taps sign out stays signed
+    /// in locally.
+    func signOut() async {
+        try? await postNoContent("auth/signout")
+        await tokenStore.clear()
+    }
+
+    func clearSession() async {
+        await tokenStore.clear()
     }
 }

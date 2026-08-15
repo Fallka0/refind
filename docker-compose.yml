@@ -1,0 +1,17 @@
+# Local Postgres for development. Disposable on purpose — nothing here is a
+# system service, so `docker compose down -v` leaves the machine as it was.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: refind
+      POSTGRES_USER: refind
+      POSTGRES_DB: refind
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U refind"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+volumes: {}
