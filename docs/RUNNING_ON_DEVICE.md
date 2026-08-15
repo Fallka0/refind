@@ -139,6 +139,29 @@ Cleartext http to a LAN address needs an App Transport Security exception.
 `NSAllowsLocalNetworking` is set in `Config/Info.plist` for exactly this — it
 permits local and link-local hosts only, not arbitrary cleartext.
 
+**A deployed server is the easier path.** `server/` is Vercel-ready, and a
+deployment hands you an https URL, which sidesteps all of the above: no LAN
+address, no ATS exception, no same-Wi-Fi requirement, and it keeps working when
+you leave the flat.
+
+```
+RF_API_BASE = https://your-deployment.vercel.app/v1
+RF_MODE     = live
+```
+
+### The one thing you cannot do yet
+
+There is no way to run the phone against the real server **detached from
+Xcode**. Both `RF_MODE` and `RF_API_BASE` are read from the process
+environment, which only Xcode populates, and nothing in the app writes
+`rf.mode` — so tapping the icon always lands in demo. A Release build does not
+help either: `RefindEnvironment.current` falls back to
+`https://api.refind.ch/v1`, which is not the deployment.
+
+Closing that gap means one of two things, both product decisions rather than
+config: an in-app mode switch that writes `rf.mode` and a base URL, or baking
+the deployment URL in as the non-DEBUG default.
+
 ## Troubleshooting
 
 | Error | Cause | Fix |
