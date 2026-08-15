@@ -261,9 +261,15 @@ public by consequence; that is accepted. Everything that *acts* (offering,
 saving, chatting, paying) still requires auth, and `unreadOfferCount` is only
 populated for the owner.
 
-**Search is properly indexed, not a substring scan.** `q` hits a search index
-over title, description and category with per-language stemming (German
-compounds matter here: "Rennvelo" must find "Velo"). `GET /wants/suggestions` is
+**Search is properly indexed, not a substring scan.** `q` hits a full-text index
+over title and description, plus a trigram index.
+
+Both are needed. `to_tsvector('german', …)` stems but does **not** decompose
+compounds — "Rennvelo" stems to `rennvelo` and never matches a search for
+"Velo". Real splitting needs an ispell/hunspell dictionary installed on the
+server, which hosted Postgres does not offer. The trigram index covers exactly
+that gap, since `velo` is a substring of `rennvelo`. Full-text still ranks; a
+full-text hit outranks a substring-only hit. `GET /wants/suggestions` is
 backed by the same index against a curated product catalogue, so the typeahead
 on screen 04 proposes real models rather than other users' typos. Ranking:
 exact model match, then prefix, then fuzzy within an edit distance of 1.

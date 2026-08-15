@@ -112,6 +112,117 @@ const stored = await sql<{ password_hash: string }[]>`
 check('password is not stored in the clear',
       !!stored[0] && !stored[0].password_hash.includes(password))
 
+// Wants ---------------------------------------------------------------------
+// A second session, because "public to read" and "only the owner sees unread"
+// cannot be checked from one account.
+const fresh = await call('/v1/auth/login', json({ email, password }))
+const owner = await fresh.json() as Record<string, string>
+const ownerAuth = { Authorization: `Bearer ${owner.accessToken}` }
+
+const otherEmail = `other-${Date.now()}@refind.ch`
+const otherReg = await call('/v1/auth/register', json({ email: otherEmail, password }))
+const other = await otherReg.json() as Record<string, string>
+const otherAuth = { Authorization: `Bearer ${other.accessToken}` }
+
+const created = await call('/v1/wants', {
+  ...json({
+    title: 'Omega Seamaster 166.062',
+    category: 'uhren',
+    budgetMax: { minorUnits: 200000, currency: 'CHF' },
+    condition: 'original',
+    region: 'Zürich',
+    radiusKm: 30,
+    durationDays: 14,
+  }),
+  headers: { 'content-type': 'application/json', ...ownerAuth },
+})
+const want = await created.json() as Record<string, any>
+check('POST /v1/wants → 201', created.status === 201, want)
+check('want carries money as minor units',
+      want.budgetMax?.minorUnits === 200000 && want.budgetMax?.currency === 'CHF',
+      want.budgetMax)
+check('new want is live with no offers',
+      want.status === 'live' && want.offerCount === 0)
+
+const shortTitle = await call('/v1/wants', {
+  ...json({ title: 'Om', category: 'uhren',
+            budgetMax: { minorUnits: 1000 }, condition: 'any', region: 'Bern' }),
+  headers: { 'content-type': 'application/json', ...ownerAuth },
+})
+check('title under 3 characters → 400', shortTitle.status === 400)
+
+const mine = await call('/v1/wants/mine', { headers: ownerAuth })
+const mineBody = await mine.json() as { items: any[] }
+check('GET /v1/wants/mine lists it', mineBody.items.some((w) => w.id === want.id))
+
+// Public read --------------------------------------------------------------
+const anon = await call(`/v1/wants/${want.id}`)
+check('a want is readable without a token', anon.status === 200)
+const anonBody = await anon.json() as Record<string, any>
+check('a stranger sees no unread count', anonBody.unreadOfferCount === 0)
+
+// Discover -----------------------------------------------------------------
+const discover = await call('/v1/wants/discover', { headers: otherAuth })
+const discoverBody = await discover.json() as { items: any[] }
+check('discover shows other people\'s wants',
+      discoverBody.items.some((w) => w.id === want.id))
+
+const ownDiscover = await call('/v1/wants/discover', { headers: ownerAuth })
+const ownBody = await ownDiscover.json() as { items: any[] }
+check('discover hides your own wants',
+      !ownBody.items.some((w) => w.id === want.id))
+
+// German stemming — the whole reason for a real index rather than LIKE.
+await call('/v1/wants', {
+  ...json({ title: 'Rennvelo Gr. 56', category: 'velo',
+            budgetMax: { minorUnits: 120000 }, condition: 'any', region: 'Zürich' }),
+  headers: { 'content-type': 'application/json', ...ownerAuth },
+})
+const velo = await call('/v1/wants/discover?q=Velo', { headers: otherAuth })
+const veloBody = await velo.json() as { items: any[] }
+check('searching "Velo" finds "Rennvelo" (German stemming)',
+      veloBody.items.some((w) => w.title.includes('Rennvelo')),
+      veloBody.items.map((w) => w.title))
+
+const nonsense = await call('/v1/wants/discover?q=zzzzqqq', { headers: otherAuth })
+check('a query matching nothing returns nothing',
+      ((await nonsense.json()) as { items: any[] }).items.length === 0)
+
+// Saving -------------------------------------------------------------------
+await call(`/v1/wants/${want.id}/saved`, {
+  method: 'PUT',
+  headers: { 'content-type': 'application/json', ...otherAuth },
+  body: JSON.stringify({ saved: true }),
+})
+const saved = await call('/v1/wants/saved', { headers: otherAuth })
+check('saving puts it in /wants/saved',
+      ((await saved.json()) as { items: any[] }).items.some((w) => w.id === want.id))
+
+await call(`/v1/wants/${want.id}/saved`, {
+  method: 'PUT',
+  headers: { 'content-type': 'application/json', ...otherAuth },
+  body: JSON.stringify({ saved: false }),
+})
+const unsaved = await call('/v1/wants/saved', { headers: otherAuth })
+check('unsaving removes it',
+      !((await unsaved.json()) as { items: any[] }).items.some((w) => w.id === want.id))
+
+// Ownership ----------------------------------------------------------------
+const hijack = await call(`/v1/wants/${want.id}/pause`, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', ...otherAuth },
+  body: JSON.stringify({ paused: true }),
+})
+check('a stranger cannot pause your want → 404', hijack.status === 404)
+
+const paused = await call(`/v1/wants/${want.id}/pause`, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', ...ownerAuth },
+  body: JSON.stringify({ paused: true }),
+})
+check('the owner can pause it',
+      paused.status === 200 && ((await paused.json()) as any).status === 'paused')
+
 // 404 shape ----------------------------------------------------------------
 const missing = await call('/v1/nope')
 const missingBody = await missing.json() as Record<string, unknown>
