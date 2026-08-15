@@ -13,8 +13,11 @@ the 7-day re-signing in the last section.
 | Cable | USB-to-Lightning or USB-C. Wireless works later, but pair over cable first |
 | Apple ID | Any Apple ID. No purchase, no Developer Program |
 
-The app needs no network: it runs entirely against `MockRefindRepository`, so it
-works in airplane mode.
+**The app on your phone runs in demo mode, offline.** `AppMode.default` is
+`.demo`, and nothing in the app writes `rf.mode` yet, so a build launched from
+the Home Screen always uses `MockRefindRepository` — seeded data, no network, no
+sign-in gate. It works in airplane mode. Pointing a device build at the real
+server is a separate step, at the end of this document.
 
 ## First run
 
@@ -43,12 +46,16 @@ refuse to build the scheme. (You can also just not run tests on device.)
 
 **3. If Xcode rejects the bundle identifier**
 
-The bundle ID is `planary.refind`. Apple requires it to be globally unique, and
+The bundle ID is `ch.nick.refind`. Apple requires it to be globally unique, and
 a personal team registers it to you on first build. If you get *"The app
 identifier cannot be registered to your development team"*, someone already has
-it — change **Bundle Identifier** to something of your own, e.g.
-`ch.pantelei.refind`. Nothing in the code reads the bundle ID, so it is safe to
-change.
+it — change **Bundle Identifier** to anything else you own. Nothing in the code
+reads the bundle ID, so it is safe to change.
+
+Note the two test targets still carry `planary.refindTests` and
+`planary.refindUITests`, from before the app target was renamed. That builds
+fine, but each distinct id burns one of the ten App IDs a free account may
+register per week, so rename them too if you hit that ceiling.
 
 **4. Plug in the phone and trust the Mac**
 
@@ -104,19 +111,49 @@ Xcode installs is a Debug build, so the `RF_SCREEN` debug hatch and
 the app to behave exactly as a shipped one would, switch the scheme to Release
 (**Product → Scheme → Edit Scheme → Run → Build Configuration → Release**).
 
+## Pointing the phone at the real server
+
+Everything above gets you the offline demo. To run the phone against the API in
+`server/`, two things are different from the simulator.
+
+**`localhost` is the phone, not your Mac.** In a Debug build `RefindEnvironment`
+defaults to `http://localhost:3000/v1`. On the simulator that works, because the
+simulator shares the Mac's network stack. On a device it resolves to the iPhone
+itself, where nothing is listening. Pass the Mac's LAN address instead, in
+**Product → Scheme → Edit Scheme → Run → Arguments → Environment Variables**:
+
+```
+RF_API_BASE = http://192.168.1.23:3000/v1
+RF_MODE     = live
+```
+
+Use your Mac's actual address from **System Settings → Network**, and keep both
+devices on the same Wi-Fi.
+
+**These are scheme variables, so they only apply when Xcode launches the app.**
+Tapping the icon on the Home Screen starts it with no environment, which falls
+back to `rf.mode` in `UserDefaults` and then to `.demo`. There is no in-app
+switch yet, so a detached launch is always the offline demo.
+
+Cleartext http to a LAN address needs an App Transport Security exception.
+`NSAllowsLocalNetworking` is set in `Config/Info.plist` for exactly this — it
+permits local and link-local hosts only, not arbitrary cleartext.
+
 ## Troubleshooting
 
 | Error | Cause | Fix |
 |---|---|---|
 | Phone missing from the destination list | iOS older than 18.2, or the phone is locked | Check the iOS version; unlock and re-trust |
 | *"Signing for 'refind' requires a development team"* | No team selected on one of the three targets | Step 2, on each target |
-| *"Failed to register bundle identifier"* | `planary.refind` is taken by another account | Step 3 |
+| *"Failed to register bundle identifier"* | `ch.nick.refind` is taken by another account | Step 3 |
 | *"Unable to install ... Developer Mode disabled"* | Step 5 not done | Step 5 |
 | *"process launch failed: Security"* | Certificate not trusted yet | Step 6 |
 | *"The app could not be verified"* after a few days | 7-day profile expired | Re-run from Xcode |
 | Fonts look like the system font, app trips an assertion at launch | The TTFs did not make it into the bundle | Check the four files in `refind/Resources/Fonts` are present and that their names match `UIAppFonts` in `Config/Info.plist` |
 | *"provisioning profile does not include the com.apple.security.\* entitlement"* | Your checkout predates the signing fix | Pull `main`; `CODE_SIGN_ENTITLEMENTS` is unset there |
 | *"requires a Mac Development signing certificate"* for an iPhone build | Same — `SUPPORTED_PLATFORMS` used to claim `macosx` | Pull `main` |
+| Sign-in spins, then fails, only on the phone | `RF_API_BASE` unset, so it is calling `localhost` — the phone itself | Pointing the phone at the real server, above |
+| *"resource could not be loaded because the App Transport Security policy requires the use of a secure connection"* | http to a LAN address with no ATS exception | `NSAllowsLocalNetworking` in `Config/Info.plist`; pull this branch if yours lacks it |
 
 ## What changed to make this work
 
