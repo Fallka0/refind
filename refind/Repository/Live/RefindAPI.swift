@@ -20,21 +20,34 @@ struct RefindEnvironment: Sendable {
     )
 }
 
-/// Holds the token pair. A real build swaps this for the Keychain — tokens in
-/// memory only is deliberate here rather than accidentally persisting them
-/// somewhere insecure.
+/// Holds the token pair, backed by the Keychain so a session survives a
+/// relaunch without ever sitting in a plist.
 actor TokenStore {
     private var accessToken: String?
     private var refreshToken: String?
+
+    init() {
+        accessToken = Keychain.get(Keychain.Key.accessToken)
+        refreshToken = Keychain.get(Keychain.Key.refreshToken)
+    }
+
+    var isSignedIn: Bool { refreshToken != nil }
 
     func tokens() -> (access: String?, refresh: String?) { (accessToken, refreshToken) }
 
     func update(access: String?, refresh: String?) {
         accessToken = access
         refreshToken = refresh
+        Keychain.set(access, for: Keychain.Key.accessToken)
+        Keychain.set(refresh, for: Keychain.Key.refreshToken)
     }
 
-    func clear() { accessToken = nil; refreshToken = nil }
+    func clear() {
+        accessToken = nil
+        refreshToken = nil
+        Keychain.remove(Keychain.Key.accessToken)
+        Keychain.remove(Keychain.Key.refreshToken)
+    }
 }
 
 /// The error body every non-2xx response carries.
