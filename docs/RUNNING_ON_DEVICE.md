@@ -29,11 +29,14 @@ open refind.xcodeproj
 Select the `refind` project in the navigator → target `refind` → **Signing &
 Capabilities**.
 
-*Automatically manage signing* is already on. The **Team** dropdown holds
-`4C24793SVA`, which is the team the project was created with. If your Xcode is
-signed into that account, leave it. Otherwise pick your own from the dropdown —
-if the list is empty, add your Apple ID under Xcode → Settings → Accounts first,
-then come back and choose the entry ending in *(Personal Team)*.
+*Automatically manage signing* is already on, and **Team is deliberately unset** —
+the project ships without a `DEVELOPMENT_TEAM` so it does not carry someone
+else's team id into your checkout. Pick yours from the dropdown; Xcode writes it
+back into the project file, which will show up as a local diff you can keep or
+discard.
+
+If the dropdown is empty, add your Apple ID under Xcode → Settings → Accounts
+first, then come back and choose the entry ending in *(Personal Team)*.
 
 Do this for the `refindTests` and `refindUITests` targets too, or Xcode will
 refuse to build the scheme. (You can also just not run tests on device.)
@@ -112,14 +115,18 @@ the app to behave exactly as a shipped one would, switch the scheme to Release
 | *"process launch failed: Security"* | Certificate not trusted yet | Step 6 |
 | *"The app could not be verified"* after a few days | 7-day profile expired | Re-run from Xcode |
 | Fonts look like the system font, app trips an assertion at launch | The TTFs did not make it into the bundle | Check the four files in `refind/Resources/Fonts` are present and that their names match `UIAppFonts` in `Config/Info.plist` |
-| *"provisioning profile does not include the com.apple.security.\* entitlement"* | You are on a build from before the entitlements file was removed | Pull this branch; the file is gone and `CODE_SIGN_ENTITLEMENTS` is unset |
+| *"provisioning profile does not include the com.apple.security.\* entitlement"* | Your checkout predates the signing fix | Pull `main`; `CODE_SIGN_ENTITLEMENTS` is unset there |
+| *"requires a Mac Development signing certificate"* for an iPhone build | Same — `SUPPORTED_PLATFORMS` used to claim `macosx` | Pull `main` |
 
 ## What changed to make this work
 
 The project was generated from Xcode's multiplatform template and still carried
-Mac and Vision Pro settings that a real device build trips over:
+Mac and Vision Pro settings that a real device build trips over. Three of them
+were fighting signing at once, all fixed in *Make the project signable for a
+device*:
 
-- `refind/refind.entitlements` declared `com.apple.security.app-sandbox` and `com.apple.security.files.user-selected.read-only`. Both are macOS entitlements. An iOS provisioning profile never contains them, so codesign rejected the device build — while the simulator, which does not check entitlements against a profile, kept working. The file is deleted and `CODE_SIGN_ENTITLEMENTS` is unset; nothing in the app needs an entitlement.
-- `SUPPORTED_PLATFORMS` listed `macosx xros xrsimulator` and `SDKROOT` was `auto`, for platforms the app has no code for. Now `iphoneos iphonesimulator` and `iphoneos`.
-- `TARGETED_DEVICE_FAMILY` was `1,2,7` — the `7` is visionOS. Now `1,2` (iPhone and iPad).
-- The `MACOSX_DEPLOYMENT_TARGET`, `XROS_DEPLOYMENT_TARGET` and macOS `LD_RUNPATH_SEARCH_PATHS` settings went with them.
+- **`CODE_SIGN_ENTITLEMENTS` pointed at macOS entitlements.** `refind/refind.entitlements` declares `com.apple.security.app-sandbox` and `com.apple.security.files.user-selected.read-only`, both macOS-only. An iOS provisioning profile never contains them, so codesign rejected the device build — while the simulator, which does not check entitlements against a profile, kept working. The setting is unset; the file is left in the tree, unreferenced. Nothing in the app needs an entitlement.
+- **`SUPPORTED_PLATFORMS` claimed `macosx xros xrsimulator`**, so Xcode demanded a *Mac Development* certificate for an iPhone app. Narrowed to `iphoneos iphonesimulator`, and `TARGETED_DEVICE_FAMILY` from `1,2,7` to `1` — the design has one 402 × 874 layout, with no iPad or Mac variant.
+- **`DEVELOPMENT_TEAM` was hardcoded** to a team that need not match the signed-in Apple ID. Removed from all four targets, so Xcode fills in the right one when you pick a team.
+
+Simulator builds and tests are unaffected by all of it.
