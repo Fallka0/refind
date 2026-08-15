@@ -38,6 +38,11 @@ Two fonts only: **Instrument Serif** for titles and the wordmark, **Archivo** fo
 
 Open `refind.xcodeproj`, pick an iPhone simulator, ⌘R. The design baseline is 402 × 874 (iPhone 16 Pro).
 
+On a real iPhone (iOS 18.2+, cable, free Apple ID is enough) — see
+[docs/RUNNING_ON_DEVICE.md](docs/RUNNING_ON_DEVICE.md). Device builds need
+Developer Mode on the phone and a trusted certificate, and a free signing
+profile expires after 7 days.
+
 Any screen can be opened directly in debug builds:
 
 ```bash

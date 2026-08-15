@@ -16,7 +16,7 @@ struct TabShell: View {
 
     var body: some View {
         // The bar is a sibling, not a safeAreaInset on the TabView: an inset
-        // there is not forwarded into the   content, so a screen's own bottom
+        // there is not forwarded into the tab content, so a screen's own bottom
         // inset (Home's "Gesuch aufhängen") ended up underneath the bar.
         VStack(spacing: 0) {
             if !connectivity.isOnline {

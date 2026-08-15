@@ -2,11 +2,23 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>de</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>de</string>
 		<string>en</string>
 	</array>
+	<!-- The commit that added the live path states this key permits http to
+	     localhost only, but it never landed. Without it App Transport Security
+	     blocks an http RF_API_BASE on a device — which is the documented way to
+	     reach a dev server on the Mac's LAN address. This is the narrow key: it
+	     allows local and link-local hosts, not arbitrary cleartext. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UIAppFonts</key>
 	<array>
 		<string>InstrumentSerif-Regular.ttf</string>
