@@ -4,11 +4,15 @@ A reverse marketplace for iOS: you post a **Gesuch** (a want — "I'm looking fo
 
 SwiftUI, iOS 18.2+. Product language is German (Swiss conventions: du-form, `CHF 1'720`).
 
+![Swift](https://img.shields.io/badge/Swift-F05138?logo=swift&logoColor=white) ![SwiftUI](https://img.shields.io/badge/SwiftUI-0D96F6?logo=swift&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white) ![Hono](https://img.shields.io/badge/Hono-E36002?logo=hono&logoColor=white) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+
+**Repo layout:** `refind/` iOS app · `server/` API (TypeScript, Hono, Postgres) · `docs/API.md` API contract
+
 ## Status
 
 All 18 designed screens are built and the core loop runs end to end: onboarding → post a want → receive offers → negotiate → close → mock escrow.
 
-**There is no backend.** Everything runs against `MockRefindRepository`, an in-memory actor seeded from the design mocks. Payment is simulated too — screens 14–18 use local state and fake delays, and no card is ever charged.
+The app runs in two modes. **Demo mode** uses `MockRefindRepository`, an in-memory actor seeded from the design mocks, so every screen works without a server. **Live mode** uses `LiveRefindRepository` against the API in [`server/`](server/README.md), where authentication and the user profile are implemented; wants, offers, chat and deals have their database schema but no endpoints yet. Payment is simulated in both modes, and no card is ever charged.
 
 ## Architecture
 
@@ -74,8 +78,8 @@ outside the catalog — localising those would corrupt API requests.
 
 ## Not built yet
 
-- **A backend.** `docs/API.md` proposes the whole v1 contract and
-  `LiveRefindRepository` implements it, but nothing serves it.
+- **The rest of the API.** Auth and profile endpoints are done; wants, offers,
+  chat, deals and escrow exist as schema only (see `server/README.md`).
 - **The escrow provider**, which decides the real shape of
   `POST /escrows/{id}/authorise`.
 - The chat WebSocket, so typing indicators are quiet on the live path.
